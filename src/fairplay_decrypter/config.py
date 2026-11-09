@@ -85,6 +85,16 @@ def set_service_dir(path: Path) -> None:
     save_config(cfg)
 
 
+def runtime_url() -> str | None:
+    return load_config().get("runtime_url")
+
+
+def set_runtime_url(url: str) -> None:
+    cfg = load_config()
+    cfg["runtime_url"] = url
+    save_config(cfg)
+
+
 def music_token() -> str | None:
     try:
         return (session_files() / "MUSIC_TOKEN").read_text().strip()

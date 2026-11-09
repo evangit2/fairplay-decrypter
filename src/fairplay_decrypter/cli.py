@@ -60,13 +60,15 @@ def cmd_setup(args) -> int:
     from pathlib import Path
 
     dest = libs.install_dir(config.data_dir())
-    if libs.is_install(dest) and not args.force:
+    explicit = bool(args.from_ or args.url)
+    if libs.is_install(dest) and not (args.force or explicit):
         config.set_service_dir(dest)
         print(libs.describe(dest))
         return 0
+    force = args.force or (explicit and libs.is_install(dest))
 
     src = Path(args.from_).expanduser() if args.from_ else None
-    if src is None:
+    if src is None and not args.url:
         found = libs.find_installs()
         src = found[0] if found else None
     if src is not None and not libs.is_install(src):
@@ -77,13 +79,17 @@ def cmd_setup(args) -> int:
     try:
         if src is not None:
             print(f"staging from {src}")
-            gone = libs.stage(src, dest, force=args.force)
+            gone = libs.stage(src, dest, force=force)
         else:
-            print("no local runtime found; downloading prebuilt runtime (~47 MB)...")
-            gone = libs.fetch(dest, force=args.force)
+            url = args.url or config.runtime_url()
+            print("no local runtime found; downloading prebuilt runtime"
+                  + (f" from {url}" if url else " (~47 MB)") + "...")
+            gone = libs.fetch(dest, url=url, force=force)
     except (OSError, ValueError, zipfile.BadZipFile) as e:
         print(f"setup failed: {e}")
         return 1
+    if args.url:
+        config.set_runtime_url(args.url)
     if gone:
         print("staged copy is incomplete:")
         print("missing: " + ", ".join(gone))
@@ -231,6 +237,8 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("setup", help="stage a local FairPlay service install (one command)")
     p.add_argument("--from", dest="from_", default=None,
                    help="install dir containing the launcher and rootfs/ (auto-detected if omitted)")
+    p.add_argument("--url", default=None,
+                   help="runtime bundle (zip) to install from instead; recorded for later re-stages")
     p.add_argument("--force", action="store_true", help="replace an existing staged copy")
     p.set_defaults(fn=cmd_setup)
     return ap

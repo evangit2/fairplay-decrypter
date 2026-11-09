@@ -87,6 +87,9 @@ AAC-256.
 
 - Per-run override: `FPDECRYPT_SERVICE=/path/to/install fairplay-decrypt …`
   (ports: `FPDECRYPT_PORT_DECRYPT`, `_MANIFEST`, `_ACCOUNT`, `_KEY`).
+- Host the bundle yourself: `fairplay-decrypt setup --url https://…/runtime.zip`
+  records the URL in `config.json` and reuses it for later re-stages
+  (`FPDECRYPT_RUNTIME_URL` also works, no config write).
 - No keys, tokens, or account databases are committed. Session state lives
   under `~/.local/share/fairplay-decrypter/device` and stays out of git.
 - One whole sample per decrypt call: the runtime is a byte pipe and
