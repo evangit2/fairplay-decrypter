@@ -18,19 +18,18 @@ from . import mp4
 from . import wire
 
 
-def _batch_decrypt(args) -> tuple[int, bytes]:
-    index, spans, segment, adam, uri, port = args
+def _batch_decrypt(job: tuple[int, list[tuple[int, int]], bytes, str, str, int]
+                   ) -> tuple[int, bytes]:
+    index, spans, segment, adam, uri, port = job
     out = bytearray()
-    offsets = []
     with wire.Decryptor(port) as dec:
         dec.arm(adam, uri, False)
         assert dec.sock is not None
         for off, ln in spans:
             dec.sock.sendall(struct.pack("<I", ln) + segment[off:off + ln])
-        for off, ln in spans:
+        for _off, ln in spans:
             out.extend(wire._recv_exact(dec.sock, ln))
-            offsets.append(off)
-    return index, bytes(out), offsets
+    return index, bytes(out)
 
 
 def decrypt_fragment(segment: bytes, adam: str, uri: str, port: int,
@@ -50,7 +49,7 @@ def decrypt_fragment(segment: bytes, adam: str, uri: str, port: int,
     out = bytearray(segment)
     jobs = [(i, ch, segment, adam, uri, port) for i, ch in enumerate(chunks)]
     with ThreadPoolExecutor(max_workers=min(workers, len(jobs))) as pool:
-        for index, pt, offsets in pool.map(_batch_decrypt, jobs):
+        for index, pt in pool.map(_batch_decrypt, jobs):
             # responses arrive in chunk order; slice sequentially
             cursor = 0
             for off, ln in chunks[index]:

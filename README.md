@@ -58,7 +58,11 @@ Default tier is the highest-bandwidth rendition.
 | `atmos768` EC-3 | 468 frag | 0x0b77 syncs throughout |
 | `aac256` AAC-LC | 703 frag | ADTS rewrap decodes to real PCM, zero errors |
 
-Full-song hi-res: 324 MB in ~26 s (~12 MB/s) on 4 workers.
+Full-song hi-res: 324 MB in ~26 s (~12 MB/s). The ceiling is the
+service's single-threaded crypto (~10-11 MB/s decrypt vs 75 MB/s fetch),
+not this client: 1/2/4/8 workers all land within 8-11 MB/s, so the default
+is 2 (less connection churn). That's ~9x realtime for 192/24 and ~40x for
+AAC-256.
 
 ## Layout
 

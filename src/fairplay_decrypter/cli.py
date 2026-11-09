@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 from . import __version__, config, ladder as ladder_mod, login as login_mod, service
-from . import fragdecrypt, mp4, verify, wire
+from . import fragdecrypt, verify, wire
 
 
 def _ports():
@@ -70,15 +70,19 @@ def _segments(tier: dict, seg: str):
     segs = entries["segments"]
     if seg == "all":
         return entries["init"], segs
-    i = int(seg)
-    return entries["init"], [segs[i]]
+    try:
+        i = int(seg)
+        return entries["init"], [segs[i]]
+    except (ValueError, IndexError):
+        raise SystemExit(f"bad segment {seg!r} (0..{len(segs) - 1} or 'all')")
 
 
-def _download(adam: str, tier: dict, segs, key_uri: str, workers: int, log=print):
+def _download(adam: str, tier: dict, segs, workers: int, log=print):
+    """Fetch + decrypt each segment with its own playlist key URI."""
     p = _ports()
     blobs = []
     external = bool(os.environ.get("FPDECRYPT_EXTERNAL"))
-    for n, (url, span, _k) in enumerate(segs):
+    for n, (url, span, key_uri) in enumerate(segs):
         ct = wire.fetch(url, span)
         attempt = 0
         while True:
@@ -102,13 +106,13 @@ def _download(adam: str, tier: dict, segs, key_uri: str, workers: int, log=print
 def cmd_dl(args) -> int:
     tier = _pick_tier(args.adam, args.tier)
     init_e, segs = _segments(tier, args.seg)
-    key_uri = segs[0][2]
-    print(f"{tier['label']} -- {len(segs)} segment(s), key {key_uri.split('/')[-2:]}")
+    keys = sorted({k.split("/")[-1] for _, _, k in segs})
+    print(f"{tier['label']} -- {len(segs)} segment(s), keys {keys}")
     init_bytes = b""
     if init_e:
         u, sp = init_e
         init_bytes = wire.fetch(u, sp) if sp else wire.fetch(u)
-    blobs = _download(args.adam, tier, segs, key_uri, args.workers)
+    blobs = _download(args.adam, tier, segs, args.workers)
     out = args.o or f"{args.adam}-{tier['id']}.m4a"
     with open(out, "wb") as f:
         f.write(init_bytes)
@@ -122,14 +126,21 @@ def cmd_stream(args) -> int:
     """Decrypt to stdout (init + segments) for piping into a player."""
     tier = _pick_tier(args.adam, args.tier)
     init_e, segs = _segments(tier, args.seg)
-    key_uri = segs[0][2]
     out = sys.stdout.buffer
     if init_e:
         u, sp = init_e
         out.write(wire.fetch(u, sp) if sp else wire.fetch(u))
-    for blob in _download(args.adam, tier, segs, key_uri, args.workers, log=lambda m: print(m, file=sys.stderr)):
+    def logs(m):
+        print(m, file=sys.stderr)
+    for blob in _download(args.adam, tier, segs, args.workers, log=logs):
         out.write(blob)
         out.flush()
+    return 0
+
+
+def cmd_stop(_args) -> int:
+    service.stop()
+    print("stopped")
     return 0
 
 
@@ -153,14 +164,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--tier", default=None)
     p.add_argument("--seg", default="all", help="segment index or 'all'")
     p.add_argument("-o", default=None)
-    p.add_argument("--workers", type=int, default=4)
+    p.add_argument("--workers", type=int, default=2)
     p.set_defaults(fn=cmd_dl)
 
     p = sub.add_parser("stream", help="decrypt to stdout for piping into a player")
     p.add_argument("adam")
     p.add_argument("--tier", default=None)
     p.add_argument("--seg", default="all")
-    p.add_argument("--workers", type=int, default=4)
+    p.add_argument("--workers", type=int, default=2)
     p.set_defaults(fn=cmd_stream)
 
     p = sub.add_parser("status", help="service + session state")
@@ -170,7 +181,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(fn=cmd_doctor)
 
     p = sub.add_parser("stop", help="stop the owned service instance")
-    p.set_defaults(fn=lambda a: (service.stop(), 0)[1])
+    p.set_defaults(fn=cmd_stop)
     return ap
 
 

@@ -7,6 +7,7 @@ with a codec+bandwidth fallback for future names.
 from __future__ import annotations
 
 import re
+from urllib.parse import urljoin
 
 from . import wire
 
@@ -47,7 +48,6 @@ def ladder(adam: str, manifest_port: int) -> list[dict]:
         cm = re.search(r'CODECS="([^"]+)"', attrs)
         codecs = cm.group(1) if cm else ""
         tid, label = _tier_id(fn, codecs, bw)
-        from urllib.parse import urljoin
         tiers.append({"id": tid, "label": label, "codecs": codecs,
                       "bandwidth": bw, "playlist": urljoin(base, fn)})
     tiers.sort(key=lambda t: -t["bandwidth"])

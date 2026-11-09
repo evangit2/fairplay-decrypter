@@ -8,6 +8,7 @@ reads the 2FA code from ``2fa.txt`` under the session files dir (``-F``).
 from __future__ import annotations
 
 import getpass
+import shutil
 import time
 
 from . import config, service
@@ -36,7 +37,6 @@ def login(user: str | None = None, password: str | None = None, fresh: bool = Fa
     """Run the login flow. Returns True once MUSIC_TOKEN exists."""
     if fresh:
         service.stop()
-        import shutil
         shutil.rmtree(config.device_base(), ignore_errors=True)
     if _token_path().exists() and _token_path().stat().st_size and not (user or password):
         print("already signed in (use --fresh to start over)")
