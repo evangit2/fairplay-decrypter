@@ -34,14 +34,21 @@ def _recv_exact(sock: socket.socket, n: int) -> bytes:
 
 
 def manifest_master(adam: str, manifest_port: int, timeout: int = 15) -> str:
-    """Return the master .m3u8 URL for an adamId."""
+    """Return the master .m3u8 URL for an adamId (newline-terminated)."""
     with socket.create_connection(("127.0.0.1", manifest_port), timeout=timeout) as s:
         s.sendall(wire_string(adam))
-        n = struct.unpack("<I", _recv_exact(s, 4))[0]
-        url = _recv_exact(s, n).decode()
-        if not url.startswith("https://"):
-            raise ValueError("manifest service did not return a URL")
-        return url
+        raw = bytearray()
+        while len(raw) < 4096:
+            part = s.recv(4096 - len(raw))
+            if not part:
+                break
+            raw.extend(part)
+            if b"\n" in raw:
+                break
+    master = bytes(raw).decode().strip()
+    if not master.startswith("https://"):
+        raise ValueError("manifest service did not return a URL")
+    return master
 
 
 def fetch(url: str, span=None, timeout: int = 30) -> bytes:
@@ -65,12 +72,13 @@ def rendition_url(master: str, needle: str) -> str:
 
 
 def media_entries(media_text: str, media_url: str):
-    """Return (resource_url, (offset, length), key_uri) per segment."""
+    """Return {"init": (url, span_or_None), "segments": [(url, (off, len), key)]}."""
     lines = media_text.splitlines()
     base = media_url.rsplit("/", 1)[0] + "/"
     curkey = None
     resource = None
-    entries = []
+    init = None
+    segments = []
     pending_span = None
     for line in lines:
         if line.startswith("#EXT-X-KEY"):
@@ -80,18 +88,18 @@ def media_entries(media_text: str, media_url: str):
             m = re.search(r'URI="([^"]+)"', line)
             assert m, "MAP line without URI"
             m2 = re.search(r'BYTERANGE="(\d+)@(\d+)"', line)
-            init_span = (int(m2.group(2)), int(m2.group(1))) if m2 else None
-            resource = urljoin(base, m.group(1))
-            entries.append(("__init__", init_span, curkey))
+            init = (urljoin(base, m.group(1)),
+                    (int(m2.group(2)), int(m2.group(1))) if m2 else None)
+            resource = init[0]
         elif line.startswith("#EXT-X-BYTERANGE:"):
             m = re.match(r"#EXT-X-BYTERANGE:(\d+)@(\d+)", line)
             assert m, "bad BYTERANGE line"
             pending_span = (int(m.group(2)), int(m.group(1)))
         elif line and not line.startswith("#"):
             if pending_span and resource:
-                entries.append((urljoin(base, line.strip()), pending_span, curkey))
+                segments.append((urljoin(base, line.strip()), pending_span, curkey))
                 pending_span = None
-    return entries
+    return {"init": init, "segments": segments}
 
 
 class Decryptor:

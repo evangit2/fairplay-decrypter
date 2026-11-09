@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 from . import __version__, config, ladder as ladder_mod, login as login_mod, service
-from . import fragdecrypt, mp4, wire
+from . import fragdecrypt, mp4, verify, wire
 
 
 def _ports():
@@ -67,20 +67,33 @@ def cmd_ladder(args) -> int:
 def _segments(tier: dict, seg: str):
     text = wire.fetch(tier["playlist"]).decode()
     entries = wire.media_entries(text, tier["playlist"])
-    init = [(u, sp, k) for u, sp, k in entries if u == "__init__"]
-    segs = [(u, sp, k) for u, sp, k in entries if u != "__init__"]
+    segs = entries["segments"]
     if seg == "all":
-        return init, segs
+        return entries["init"], segs
     i = int(seg)
-    return init, [segs[i]]
+    return entries["init"], [segs[i]]
 
 
 def _download(adam: str, tier: dict, segs, key_uri: str, workers: int, log=print):
     p = _ports()
     blobs = []
+    external = bool(os.environ.get("FAIRTUNES_EXTERNAL"))
     for n, (url, span, _k) in enumerate(segs):
         ct = wire.fetch(url, span)
-        pt = fragdecrypt.decrypt_fragment(ct, adam, key_uri, p["decrypt"], workers=workers)
+        attempt = 0
+        while True:
+            pt = fragdecrypt.decrypt_fragment(ct, adam, key_uri, p["decrypt"], workers=workers)
+            try:
+                if n == 0:
+                    verify.check(pt, tier["codecs"])
+                break
+            except ValueError as e:
+                attempt += 1
+                if attempt > 1 or external:
+                    raise SystemExit(f"verify failed ({e}); refusing to save noise")
+                log("  verify failed, restarting service and retrying once...")
+                service.stop()
+                service.start()
         blobs.append(pt)
         log(f"  [{n + 1}/{len(segs)}] {len(pt) // 1024} KiB")
     return blobs
@@ -93,7 +106,7 @@ def cmd_dl(args) -> int:
     print(f"{tier['label']} -- {len(segs)} segment(s), key {key_uri.split('/')[-2:]}")
     init_bytes = b""
     if init_e:
-        u, sp, _k = init_e[0]
+        u, sp = init_e
         init_bytes = wire.fetch(u, sp) if sp else wire.fetch(u)
     blobs = _download(args.adam, tier, segs, key_uri, args.workers)
     out = args.o or f"{args.adam}-{tier['id']}.m4a"
@@ -112,7 +125,7 @@ def cmd_stream(args) -> int:
     key_uri = segs[0][2]
     out = sys.stdout.buffer
     if init_e:
-        u, sp, _k = init_e[0]
+        u, sp = init_e
         out.write(wire.fetch(u, sp) if sp else wire.fetch(u))
     for blob in _download(args.adam, tier, segs, key_uri, args.workers, log=lambda m: print(m, file=sys.stderr)):
         out.write(blob)

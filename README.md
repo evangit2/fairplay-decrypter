@@ -41,6 +41,24 @@ Default tier is the highest-bandwidth rendition.
   `mp4.py`, and decrypt one whole sample per decrypt-port call in
   fresh-arm batches (default 64 samples x 4 workers). Output is
   init + plaintext segments: a playable `.m4a`.
+- Verify-first: the first segment of every download is codec-checked in
+  source (EC-3 sync / ALAC frame headers / AAC ADTS-decode with non-empty
+  output). On failure with an owned instance, the service restarts and the
+  segment retries once — a wedged or stale key context returns
+  same-length noise, never an error, so silence is not proof. In external
+  mode (`FAIRTUNES_EXTERNAL=1`, e.g. a Lidra-owned wrapper on 10020) a
+  verify failure aborts instead of restarting someone else's service.
+
+## Proven tiers (song 268443097, live runs)
+
+| tier | segments | proof |
+|---|---|---|
+| `hirez192` ALAC 192/24 | 703 frag | 40/40 ALAC frame headers |
+| `alac48` ALAC 48/24 | 175 frag | 60/60 ALAC frame headers |
+| `atmos768` EC-3 | 468 frag | 0x0b77 syncs throughout |
+| `aac256` AAC-LC | 703 frag | ADTS rewrap decodes to real PCM, zero errors |
+
+Full-song hi-res: 324 MB in ~26 s (~12 MB/s) on 4 workers.
 
 ## Layout
 

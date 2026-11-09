@@ -6,7 +6,7 @@ import struct
 import threading
 import unittest
 
-from fairtunes import fragdecrypt, mp4
+from fairtunes import fragdecrypt, mp4, verify
 
 
 def box(typ: bytes, payload: bytes) -> bytes:
@@ -117,6 +117,27 @@ class Tests(unittest.TestCase):
             o, ln = s["offset"], s["size"] & ~15
             self.assertEqual(pt[o:o + ln], bytes(b ^ 0x55 for b in seg[o:o + ln]))
         self.assertGreaterEqual(srv.arms, 2)  # batching used several arms
+
+
+    def test_verify_ec3(self):
+        seg, _ = synth_fragment([64] * 10)
+        samples = mp4.sample_layout(seg, 0)
+        good = bytearray(seg)
+        for s in samples:
+            good[s["offset"]:s["offset"] + 2] = b"\x0bw"
+        verify.check(bytes(good), "ec-3")
+        with self.assertRaises(ValueError):
+            verify.check(seg, "ec-3")
+
+    def test_verify_alac(self):
+        seg, _ = synth_fragment([64] * 10)
+        samples = mp4.sample_layout(seg, 0)
+        good = bytearray(seg)
+        for s in samples:
+            good[s["offset"]:s["offset"] + 4] = b"\x20\x00\x04\x04"
+        verify.check(bytes(good), "alac")
+        with self.assertRaises(ValueError):
+            verify.check(seg, "alac")
 
 
 if __name__ == "__main__":
