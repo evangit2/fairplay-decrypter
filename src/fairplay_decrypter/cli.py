@@ -22,8 +22,21 @@ def cmd_login(args) -> int:
     return 0 if ok else 1
 
 
-def cmd_status(_args) -> int:
-    print(f"service: {'running' if service.is_running() else 'stopped'}")
+def cmd_status(args) -> int:
+    import json
+    inst = config.service_dir()
+    tok = config.music_token()
+    state = {
+        "service": "running" if service.is_running() else "stopped",
+        "install": str(inst) if inst else None,
+        "session": "signed in" if tok else "not signed in",
+        "storefront": config.storefront(),
+        "device": str(config.device_base()),
+    }
+    if args.json:
+        print(json.dumps(state))
+        return 0
+    print(f"service: {state['service']}")
     inst = config.service_dir()
     print(f"install: {inst if inst else 'not set up (run: fairplay-decrypt setup)'}")
     tok = config.music_token()
@@ -111,7 +124,13 @@ def _pick_tier(adam: str, want: str | None):
 
 
 def cmd_ladder(args) -> int:
-    print(ladder_mod.describe(args.adam, _ports()["manifest"]))
+    import json
+    tiers = ladder_mod.ladder(args.adam, _ports()["manifest"])
+    if args.json:
+        print(json.dumps(tiers))
+    else:
+        for t in tiers:
+            print(f'{t["id"]:12s} {t["label"]:24s} {t["bandwidth"] // 1000:5d} kbps')
     return 0
 
 
@@ -208,6 +227,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("ladder", help="list quality tiers for a song")
     p.add_argument("adam", help="song id (e.g. 268443097)")
+    p.add_argument("--json", action="store_true", help="machine-readable output")
     p.set_defaults(fn=cmd_ladder)
 
     p = sub.add_parser("dl", help="download a song (default: best tier, all segments)")
@@ -226,6 +246,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(fn=cmd_stream)
 
     p = sub.add_parser("status", help="service + session state")
+    p.add_argument("--json", action="store_true", help="machine-readable output")
     p.set_defaults(fn=cmd_status)
 
     p = sub.add_parser("doctor", help="environment checks")
