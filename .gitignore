@@ -9,7 +9,7 @@ dist/
 *.mp4
 *.jsonl
 *.so
-libs/
+!libs/*.so
 .DS_Store
 
 # Local runtime + per-machine session state: never commit.
