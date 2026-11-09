@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fairtunes"
+version = "0.1.0"
+description = "Apple Music streaming/download CLI: source-driven FairPlay pipeline, keys borrowed from a local wrapper service"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "evangit2" }]
+
+[project.scripts]
+fairtunes = "fairtunes.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

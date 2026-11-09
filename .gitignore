@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.venv/
+*.log
+*.m4a
+*.mp4
+*.jsonl
+.DS_Store
