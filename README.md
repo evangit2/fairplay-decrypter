@@ -17,7 +17,8 @@ fairplay-decrypt doctor
 `~/.config/fairplay-decrypter/config.json` (mode 0600). It uses a local
 install when one exists (`--from PATH` points at one explicitly, `--force`
 replaces a staged copy), otherwise it downloads the prebuilt runtime once
-(~47 MB). No separate install or running service is needed after setup.
+(~47 MB). The six Apple runtime shared libraries are vendored in `libs/`,
+so they ship with the repo. No separate install or running service is needed after setup.
 Account state is never copied — `login` creates a fresh session on this
 machine.
 
@@ -82,6 +83,9 @@ AAC-256.
 - `src/fairplay_decrypter/login.py`, `ladder.py`, `config.py`, `cli.py`
 - `tests/test_offline.py` — synthetic-MP4 + fake-server tests, no network
 - `tests/test_setup.py` — install staging/verification, no network
+- `libs/` — vendored Apple Music runtime shared libs (`libCoreFP`,
+  `libCoreLSKD`, `libCoreADI`, `libandroidappmusic`, `libmediaplatform`,
+  `libstoreservicescore`; ~27 MB total)
 
 ## Notes
 
@@ -90,6 +94,10 @@ AAC-256.
 - Host the bundle yourself: `fairplay-decrypt setup --url https://…/runtime.zip`
   records the URL in `config.json` and reuses it for later re-stages
   (`FPDECRYPT_RUNTIME_URL` also works, no config write).
+- `libs/` holds Apple proprietary binaries from the Apple Music Android
+  runtime bundle. They are the shared libraries the decrypt service loads —
+  not a runnable install on their own (`wrapper`, `main`, `linker64` still
+  come from `setup` via a local install or the prebuilt bundle).
 - No keys, tokens, or account databases are committed. Session state lives
   under `~/.local/share/fairplay-decrypter/device` and stays out of git.
 - One whole sample per decrypt call: the runtime is a byte pipe and
