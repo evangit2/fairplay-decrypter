@@ -1,7 +1,7 @@
 """Lifecycle for the privately-owned wrapper service instance.
 
-fairtunes never ships Apple binaries: it launches the user's own local
-wrapper install (``FAIRTUNES_WRAPPER`` or ``~/.lidra-wrapper/inst2``) with
+fairplay_decrypter never ships Apple binaries: it launches the user's own local
+wrapper install (``FPDECRYPT_WRAPPER`` or ``~/.lidra-wrapper/inst2``) with
 its own base dir and ports. The child is started in its own process group
 so ``stop()`` takes the inner service down too (killing only the launcher
 orphans the port holder).
@@ -53,9 +53,9 @@ def start(creds: str | None = None, extra_args: list[str] | None = None,
     reused (no 2FA once the device is trusted)."""
     inst = config.wrapper_install()
     if inst is None:
-        raise RuntimeError("no wrapper install found (FAIRTUNES_WRAPPER or ~/.lidra-wrapper/inst2)")
+        raise RuntimeError("no wrapper install found (FPDECRYPT_WRAPPER or ~/.lidra-wrapper/inst2)")
     if is_running():
-        raise RuntimeError("service already running (fairtunes status / stop)")
+        raise RuntimeError("service already running (fairplay_decrypter status / stop)")
     p = config.ports()
     base = config.device_base()
     base.mkdir(parents=True, exist_ok=True)

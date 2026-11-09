@@ -6,7 +6,7 @@ import struct
 import threading
 import unittest
 
-from fairtunes import fragdecrypt, mp4, verify
+from fairplay_decrypter import fragdecrypt, mp4, verify
 
 
 def box(typ: bytes, payload: bytes) -> bytes:

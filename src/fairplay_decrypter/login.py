@@ -58,7 +58,7 @@ def login(user: str | None = None, password: str | None = None, fresh: bool = Fa
         if _wait_token(time.time() + 120):
             print("signed in; device trusted for future starts")
             return True
-        print("login did not complete; check fairtunes status / wrapper log")
+        print("login did not complete; check fairplay_decrypter status / wrapper log")
         return False
     finally:
         try:

@@ -1,4 +1,4 @@
-"""fairtunes CLI: login, ladder, dl, stream, status, doctor."""
+"""fairplay_decrypter CLI: login, ladder, dl, stream, status, doctor."""
 
 from __future__ import annotations
 
@@ -41,11 +41,11 @@ def cmd_doctor(_args) -> int:
         ok = ok and good
 
     inst = config.wrapper_install()
-    check("wrapper install", inst is not None, "set FAIRTUNES_WRAPPER=~/.lidra-wrapper/inst2")
+    check("wrapper install", inst is not None, "set FPDECRYPT_WRAPPER=~/.lidra-wrapper/inst2")
     check("ffmpeg", shutil.which("ffmpeg") is not None, "install ffmpeg for remux/decode checks")
     r = subprocess.run(["sudo", "-n", "true"], capture_output=True)
     check("passwordless sudo (service mounts)", r.returncode == 0, "add a sudoers NOPASSWD rule")
-    check("signed in", config.music_token() is not None, "run: fairtunes login")
+    check("signed in", config.music_token() is not None, "run: fairplay_decrypter login")
     return 0 if ok else 1
 
 
@@ -55,7 +55,7 @@ def _pick_tier(adam: str, want: str | None):
         for t in tiers:
             if t["id"] == want:
                 return t
-        raise SystemExit(f"unknown tier {want!r} (see: fairtunes ladder {adam})")
+        raise SystemExit(f"unknown tier {want!r} (see: fairplay_decrypter ladder {adam})")
     return tiers[0]
 
 
@@ -77,7 +77,7 @@ def _segments(tier: dict, seg: str):
 def _download(adam: str, tier: dict, segs, key_uri: str, workers: int, log=print):
     p = _ports()
     blobs = []
-    external = bool(os.environ.get("FAIRTUNES_EXTERNAL"))
+    external = bool(os.environ.get("FPDECRYPT_EXTERNAL"))
     for n, (url, span, _k) in enumerate(segs):
         ct = wire.fetch(url, span)
         attempt = 0
@@ -134,7 +134,7 @@ def cmd_stream(args) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    ap = argparse.ArgumentParser(prog="fairtunes", description="Apple Music streaming/download CLI")
+    ap = argparse.ArgumentParser(prog="fairplay-decrypt", description="Apple Music FairPlay decrypter")
     ap.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
@@ -177,7 +177,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
     if (args.cmd in ("ladder", "dl", "stream") and not service.is_running()
-            and not os.environ.get("FAIRTUNES_EXTERNAL")):
+            and not os.environ.get("FPDECRYPT_EXTERNAL")):
         print("starting service...")
         try:
             service.start()

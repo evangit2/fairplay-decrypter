@@ -15,7 +15,7 @@ import urllib.parse
 import urllib.request
 from urllib.parse import urljoin
 
-UA = {"User-Agent": "fairtunes/0.1.0"}
+UA = {"User-Agent": "fairplay_decrypter/0.1.0"}
 
 
 def wire_string(value: str) -> bytes:
