@@ -7,9 +7,10 @@ import os
 import shutil
 import subprocess
 import sys
+import zipfile
 
 from . import __version__, config, ladder as ladder_mod, login as login_mod, service
-from . import fragdecrypt, verify, wire
+from . import fragdecrypt, libs, verify, wire
 
 
 def _ports():
@@ -23,6 +24,8 @@ def cmd_login(args) -> int:
 
 def cmd_status(_args) -> int:
     print(f"service: {'running' if service.is_running() else 'stopped'}")
+    inst = config.service_dir()
+    print(f"install: {inst if inst else 'not set up (run: fairplay-decrypt setup)'}")
     tok = config.music_token()
     print(f"session: {'signed in' if tok else 'not signed in'}", end="")
     if tok:
@@ -40,13 +43,55 @@ def cmd_doctor(_args) -> int:
         print(("ok  " if good else "FAIL") + f" {name}" + ("" if good else f" -- {hint}"))
         ok = ok and good
 
-    inst = config.wrapper_install()
-    check("wrapper install", inst is not None, "set FPDECRYPT_WRAPPER=~/.lidra-wrapper/inst2")
+    inst = config.service_dir()
+    check("service install", inst is not None, "run: fairplay-decrypt setup")
+    if inst is not None:
+        check(f"libs ({len(libs.sizes(inst))}/{len(libs.LIB_NAMES)})",
+              len(libs.sizes(inst)) == len(libs.LIB_NAMES), "re-run: fairplay-decrypt setup --force")
+        check("runtime executable", libs.executable(inst), "re-run: fairplay-decrypt setup --force")
     check("ffmpeg", shutil.which("ffmpeg") is not None, "install ffmpeg for remux/decode checks")
     r = subprocess.run(["sudo", "-n", "true"], capture_output=True)
     check("passwordless sudo (service mounts)", r.returncode == 0, "add a sudoers NOPASSWD rule")
-    check("signed in", config.music_token() is not None, "run: fairplay_decrypter login")
+    check("signed in", config.music_token() is not None, "run: fairplay-decrypt login")
     return 0 if ok else 1
+
+
+def cmd_setup(args) -> int:
+    from pathlib import Path
+
+    dest = libs.install_dir(config.data_dir())
+    if libs.is_install(dest) and not args.force:
+        config.set_service_dir(dest)
+        print(libs.describe(dest))
+        return 0
+
+    src = Path(args.from_).expanduser() if args.from_ else None
+    if src is None:
+        found = libs.find_installs()
+        src = found[0] if found else None
+    if src is not None and not libs.is_install(src):
+        print(f"not a service install: {src}")
+        print("missing: " + ", ".join(libs.missing(src)))
+        return 1
+
+    try:
+        if src is not None:
+            print(f"staging from {src}")
+            gone = libs.stage(src, dest, force=args.force)
+        else:
+            print("no local runtime found; downloading prebuilt runtime (~47 MB)...")
+            gone = libs.fetch(dest, force=args.force)
+    except (OSError, ValueError, zipfile.BadZipFile) as e:
+        print(f"setup failed: {e}")
+        return 1
+    if gone:
+        print("staged copy is incomplete:")
+        print("missing: " + ", ".join(gone))
+        return 1
+    config.set_service_dir(dest)
+    print(libs.describe(dest))
+    print("\nnext: fairplay-decrypt login")
+    return 0
 
 
 def _pick_tier(adam: str, want: str | None):
@@ -180,8 +225,14 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("doctor", help="environment checks")
     p.set_defaults(fn=cmd_doctor)
 
-    p = sub.add_parser("stop", help="stop the owned service instance")
+    p = sub.add_parser("stop", help="stop the local service instance")
     p.set_defaults(fn=cmd_stop)
+
+    p = sub.add_parser("setup", help="stage a local FairPlay service install (one command)")
+    p.add_argument("--from", dest="from_", default=None,
+                   help="install dir containing the launcher and rootfs/ (auto-detected if omitted)")
+    p.add_argument("--force", action="store_true", help="replace an existing staged copy")
+    p.set_defaults(fn=cmd_setup)
     return ap
 
 

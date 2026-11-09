@@ -1,10 +1,9 @@
-"""Lifecycle for the privately-owned wrapper service instance.
+"""Lifecycle for the local FairPlay service instance.
 
-fairplay_decrypter never ships Apple binaries: it launches the user's own local
-wrapper install (``FPDECRYPT_WRAPPER`` or ``~/.lidra-wrapper/inst2``) with
-its own base dir and ports. The child is started in its own process group
-so ``stop()`` takes the inner service down too (killing only the launcher
-orphans the port holder).
+fairplay_decrypter launches the user's own local service install (staged by
+``fairplay-decrypt setup``) with its own base dir and ports. The child is
+started in its own process group so ``stop()`` takes the inner service down
+too (killing only the launcher orphans the port holder).
 """
 
 from __future__ import annotations
@@ -26,11 +25,11 @@ def _port_open(port: int) -> bool:
 
 
 def pidfile() -> Path:
-    return config.data_dir() / "wrapper.pid"
+    return config.data_dir() / "service.pid"
 
 
 def logfile() -> Path:
-    return config.data_dir() / "wrapper.log"
+    return config.data_dir() / "service.log"
 
 
 def is_running() -> bool:
@@ -51,11 +50,11 @@ def start(creds: str | None = None, extra_args: list[str] | None = None,
     """Launch the service; wait for decrypt+manifest ports. ``creds`` is
     ``user:password`` for ``-L`` (login); otherwise the stored session is
     reused (no 2FA once the device is trusted)."""
-    inst = config.wrapper_install()
+    inst = config.service_dir()
     if inst is None:
-        raise RuntimeError("no wrapper install found (FPDECRYPT_WRAPPER or ~/.lidra-wrapper/inst2)")
+        raise RuntimeError("no service install found -- run: fairplay-decrypt setup")
     if is_running():
-        raise RuntimeError("service already running (fairplay_decrypter status / stop)")
+        raise RuntimeError("service already running (fairplay-decrypt status / stop)")
     p = config.ports()
     base = config.device_base()
     base.mkdir(parents=True, exist_ok=True)

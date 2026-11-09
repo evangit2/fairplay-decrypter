@@ -1,7 +1,7 @@
-"""Apple ID login through the owned wrapper instance.
+"""Apple ID login through the local FairPlay runtime.
 
 First login provisions the device identity and caches MUSIC_TOKEN; later
-starts reuse it with no 2FA while the device stays trusted. The wrapper
+starts reuse it with no 2FA while the device stays trusted. The runtime
 reads the 2FA code from ``2fa.txt`` under the session files dir (``-F``).
 """
 
@@ -58,7 +58,7 @@ def login(user: str | None = None, password: str | None = None, fresh: bool = Fa
         if _wait_token(time.time() + 120):
             print("signed in; device trusted for future starts")
             return True
-        print("login did not complete; check fairplay_decrypter status / wrapper log")
+        print("login did not complete; check fairplay-decrypt status / service log")
         return False
     finally:
         try:

@@ -8,4 +8,19 @@ dist/
 *.m4a
 *.mp4
 *.jsonl
+*.so
+libs/
 .DS_Store
+
+# Local runtime + per-machine session state: never commit.
+service/
+device/
+config.json
+2fa.txt
+MUSIC_TOKEN
+STOREFRONT_ID
+*.sqlitedb
+*.sqlitedb-*
+*.pem
+*.key
+*.p12

@@ -23,7 +23,7 @@ def data_dir() -> Path:
 
 
 def device_base() -> Path:
-    """Wrapper base dir owned by fairplay_decrypter (fresh device identity)."""
+    """Service base dir owned by fairplay_decrypter (fresh device identity)."""
     return data_dir() / "device"
 
 
@@ -31,14 +31,24 @@ def session_files() -> Path:
     return device_base() / FILES_DIR
 
 
+def load_config() -> dict:
+    cfg = config_dir() / "config.json"
+    try:
+        return json.loads(cfg.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def save_config(cfg: dict) -> None:
+    path = config_dir() / "config.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(cfg, indent=2) + "\n")
+    os.chmod(path, 0o600)
+
+
 def ports() -> dict:
     p = dict(DEFAULT_PORTS)
-    cfg = config_dir() / "config.json"
-    if cfg.exists():
-        try:
-            p.update(json.loads(cfg.read_text()).get("ports", {}))
-        except (OSError, ValueError):
-            pass
+    p.update(load_config().get("ports", {}))
     for k in p:
         env = os.environ.get(f"FPDECRYPT_PORT_{k.upper()}")
         if env:
@@ -46,15 +56,33 @@ def ports() -> dict:
     return p
 
 
-def wrapper_install() -> Path | None:
-    """Local wrapper install (Apple binaries used in place, never vendored)."""
-    env = os.environ.get("FPDECRYPT_WRAPPER")
-    cands = [Path(env)] if env else []
-    cands.append(Path.home() / ".lidra-wrapper" / "inst2")
+def service_dir() -> Path | None:
+    """Install dir of the local FairPlay service (launcher + rootfs).
+
+    Resolution order: ``FPDECRYPT_SERVICE`` (alias ``FPDECRYPT_WRAPPER``),
+    the ``service_dir`` written by ``setup``, then the default staged copy
+    under the data dir.
+    """
+    from . import libs
+
+    cands: list[Path] = []
+    env = os.environ.get("FPDECRYPT_SERVICE") or os.environ.get("FPDECRYPT_WRAPPER")
+    if env:
+        cands.append(Path(env).expanduser())
+    configured = load_config().get("service_dir")
+    if configured:
+        cands.append(Path(configured).expanduser())
+    cands.append(libs.install_dir(data_dir()))
     for c in cands:
-        if (c / "wrapper").exists() and (c / "rootfs/system/bin/main").exists():
+        if libs.is_install(c):
             return c
     return None
+
+
+def set_service_dir(path: Path) -> None:
+    cfg = load_config()
+    cfg["service_dir"] = str(path)
+    save_config(cfg)
 
 
 def music_token() -> str | None:

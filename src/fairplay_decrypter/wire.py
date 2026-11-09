@@ -1,4 +1,4 @@
-"""Wire clients for the local wrapper service.
+"""Wire clients for the local FairPlay runtime.
 
 Manifest port: binary-framed ``[len]adamId`` -> master .m3u8 URL; media
 playlists are plain HTTPS. Decrypt port: select (arm) + per-sample

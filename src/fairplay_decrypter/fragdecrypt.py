@@ -1,5 +1,5 @@
-"""Fragment decryptor: CENC spans parsed in source, key contexts borrowed
-from the local wrapper service over its decrypt port.
+"""Fragment decryptor: CENC spans parsed in source, key contexts come
+from the local FairPlay runtime over its decrypt port.
 
 The service is a byte pipe: it decrypts exactly what it is sent (CBC
 chained from the armed key context, cbcs/clear skipping applied
